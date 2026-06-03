@@ -27,7 +27,7 @@ export default function Home() {
     formData.append("file", file);
 
     try {
-      const response = await fetch("http://127.0.0.1:8000/api/upload", {
+      const response = await fetch("https://my-rag-backend-o39g.onrender.com/api/upload", {
         method: "POST",
         body: formData,
       });
@@ -67,7 +67,7 @@ export default function Home() {
         historyToSend[lastIndex].content = `[КОНТЕКСТ ДОКУМЕНТА: ${documentContext}]\n\nОпираясь на контекст выше, ответь на вопрос: ${historyToSend[lastIndex].content}`;
       }
 
-      const response = await fetch("http://127.0.0.1:8000/api/chat", {
+      const response = await fetch("https://my-rag-backend-o39g.onrender.com/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messages: historyToSend }),
