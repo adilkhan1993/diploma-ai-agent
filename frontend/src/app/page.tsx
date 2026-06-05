@@ -99,8 +99,8 @@ export default function Home() {
             return newMessages;
           });
           
-          // Искусственная задержка в 15 миллисекунд между буквами
-          await new Promise((resolve) => setTimeout(resolve, 15));
+          // Искусственная задержка в миллисекундах (чем меньше, тем быстрее)
+          await new Promise((resolve) => setTimeout(resolve, 5));
         }
         // -----------------------------------------------------------
       }
