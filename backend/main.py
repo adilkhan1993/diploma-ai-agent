@@ -138,7 +138,7 @@ async def agent_streamer(history_messages: list[Message]):
                 words = content.split(" ")
                 for i, word in enumerate(words):
                     yield word + (" " if i < len(words) - 1 else "")
-                    await asyncio.sleep(0.02)
+                    await asyncio.sleep(0.07)
 
         logger.info("Генерация успешно завершена.")
     except Exception as e:
