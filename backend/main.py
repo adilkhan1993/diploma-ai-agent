@@ -138,7 +138,7 @@ async def agent_streamer(history_messages: list[Message]):
                 words = content.split(" ")
                 for i, word in enumerate(words):
                     yield word + (" " if i < len(words) - 1 else "")
-                    await asyncio.sleep(0.07)
+                    await asyncio.sleep(0.02)
 
         logger.info("Генерация успешно завершена.")
     except Exception as e:
@@ -150,7 +150,15 @@ async def agent_streamer(history_messages: list[Message]):
 @limiter.limit("5/minute")
 async def chat(request: Request, body: ChatRequest):
     logger.info(f"Получен запрос в чат. Сообщений в истории: {len(body.messages)}")
-    return StreamingResponse(agent_streamer(body.messages), media_type="text/plain")
+    return StreamingResponse(
+        agent_streamer(body.messages), 
+        media_type="text/plain",
+        headers={
+            "X-Accel-Buffering": "no",  # <-- Жестко отключаем прокси-накопитель Render
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive"
+        }
+    )
 
 @app.post("/api/upload")
 async def upload_pdf(file: UploadFile = File(...)):
