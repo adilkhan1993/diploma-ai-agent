@@ -41,7 +41,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# НОВАЯ МОДЕЛЬ: теперь мы принимаем не одну строку, а список сообщений
 class Message(BaseModel):
     role: str
     content: str
@@ -70,35 +69,50 @@ async def agent_streamer(history_messages: list[Message]):
     try:
         logger.info("Начало генерации ответа ИИ...")
         
-        # 1. Строгий системный промпт (защита от галлюцинаций и зацикливания)
+        # 1. Системный промпт
         messages = [
             {
                 "role": "system", 
                 "content": (
                     "Ты — профессиональный ИИ-аналитик. "
-                    "ВНИМАНИЕ: Используй инструмент 'scrape_website' ТОЛЬКО если пользователь прислал новую ссылку В СВОЕМ САМОМ ПОСЛЕДНЕМ СООБЩЕНИИ. "
-                    "ИГНОРИРУЙ любые ссылки, которые были в истории прошлых сообщений. Не вызывай инструмент для старых ссылок. "
-                    "НИКОГДА не придумывай и не генерируй ссылки самостоятельно! "
-                    "Если пользователь просит перевести текст, уточнить детали или просто общается без новых ссылок, "
-                    "отвечай опираясь на историю диалога из своей памяти, СТРОГО БЕЗ ВЫЗОВА инструментов."
+                    "Отвечай на языке запроса пользователя. "
+                    "Если пользователь просит перевести текст, уточнить детали или просто общается, "
+                    "отвечай опираясь на историю диалога из своей памяти."
                 )
             }
         ]
         
-        # 2. Добавляем всю историю переписки из фронтенда! (Память)
+        # 2. Добавляем всю историю переписки из фронтенда
         for msg in history_messages:
             messages.append({"role": msg.role, "content": msg.content})
             
+        # === УМНАЯ МАРШРУТИЗАЦИЯ (АВТО-ОТКЛЮЧЕНИЕ ИНСТРУМЕНТОВ) ===
+        # Проверяем, есть ли ссылка именно в ПОСЛЕДНЕМ запросе пользователя
+        last_user_msg = history_messages[-1].content.lower() if history_messages else ""
+        needs_tools = "http://" in last_user_msg or "https://" in last_user_msg
+        
         # Запрашиваем ИИ
-        response = await client.chat.completions.create(
-            model="llama-3.1-8b-instant",
-            messages=messages,
-            tools=tools,
-            tool_choice="auto",
-        )
+        if needs_tools:
+            logger.info("В последнем сообщении найдена ссылка. Включаем Tools.")
+            response = await client.chat.completions.create(
+                model="llama-3.1-8b-instant",
+                messages=messages,
+                tools=tools,
+                tool_choice="auto",
+            )
+        else:
+            logger.info("В последнем сообщении ссылок нет. Отключаем Tools, отвечаем из памяти.")
+            response = await client.chat.completions.create(
+                model="llama-3.1-8b-instant",
+                messages=messages,
+                # Инструменты скрыты!
+            )
+        # ==========================================================
         
         response_message = response.choices[0].message
-        tool_calls = response_message.tool_calls
+        
+        # Безопасно получаем tool_calls (их может не быть, если tools отключены)
+        tool_calls = getattr(response_message, 'tool_calls', None)
         
         if tool_calls:
             logger.info(f"ИИ решил использовать инструменты: {len(tool_calls)} шт.")
@@ -137,6 +151,7 @@ async def agent_streamer(history_messages: list[Message]):
             logger.info("ИИ отвечает из памяти (без инструментов).")
             content = response_message.content
             if content:
+                # Если ответ выдается без стриминга (из первого запроса), эмулируем печатную машинку
                 words = content.split(" ")
                 for i, word in enumerate(words):
                     yield word + (" " if i < len(words) - 1 else "")
