@@ -87,13 +87,22 @@ export default function Home() {
         const { done, value } = await reader.read();
         if (done) break;
         const chunk = decoder.decode(value, { stream: true });
-        aiResponseText += chunk; 
-
-        setMessages((prev) => {
-          const newMessages = [...prev];
-          newMessages[newMessages.length - 1] = { role: "assistant", content: aiResponseText };
-          return newMessages;
-        });
+        
+        // --- 100% ГАРАНТИЯ ПЛАВНОСТИ (Фронтенд-печатная машинка) ---
+        // Печатаем прилетевший текст по одной букве
+        for (let i = 0; i < chunk.length; i++) {
+          aiResponseText += chunk[i];
+          
+          setMessages((prev) => {
+            const newMessages = [...prev];
+            newMessages[newMessages.length - 1] = { role: "assistant", content: aiResponseText };
+            return newMessages;
+          });
+          
+          // Искусственная задержка в 15 миллисекунд между буквами
+          await new Promise((resolve) => setTimeout(resolve, 15));
+        }
+        // -----------------------------------------------------------
       }
     } catch (error: any) {
       setMessages((prev) => [...prev, { role: "assistant", content: `❌ Ошибка: ${error.message}` }]);
